@@ -26,6 +26,9 @@ import com.firebase.ui.storage.images.FirebaseImageLoader;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 import com.google.firebase.storage.UploadTask;
@@ -35,15 +38,17 @@ import java.io.InputStream;
 import java.util.Arrays;
 
 public class UserActivity extends AppCompatActivity {
-//  on choisit une valeur arbitraire pour représenter la connexion
+    //  on choisit une valeur arbitraire pour représenter la connexion
     private static final int RC_SIGN_IN = 123;
     private static final int SELECT_PICTURE = 124;
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
 // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.actions, menu);
         return true;
     }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -56,17 +61,19 @@ public class UserActivity extends AppCompatActivity {
         if (auth.getCurrentUser() != null) {
 // déjà connecté
             Log.v("AndroBoum", "je suis déjà connecté sous l'email :"
-                    +auth.getCurrentUser().getEmail());
+                    + auth.getCurrentUser().getEmail());
             TextView textView = (TextView) findViewById(R.id.email);
             textView.setText(auth.getCurrentUser().getEmail());
+            downloadImage();
+            setUser();
         } else {
 // on lance l'activité qui gère l'écran de connexion en
 //la paramétrant avec les providers googlet et facebook.
             startActivityForResult(AuthUI.getInstance().createSignInIntentBuilder()
-                            .setAvailableProviders(Arrays.asList(
-                                    new AuthUI.IdpConfig.Builder(AuthUI.GOOGLE_PROVIDER).build(),
-                                    new AuthUI.IdpConfig.Builder(AuthUI.FACEBOOK_PROVIDER).build()))
-                            .build(),123);
+                    .setAvailableProviders(Arrays.asList(
+                            new AuthUI.IdpConfig.Builder(AuthUI.GOOGLE_PROVIDER).build(),
+                            new AuthUI.IdpConfig.Builder(AuthUI.FACEBOOK_PROVIDER).build()))
+                    .build(), 123);
         }
         ImageView imageView = (ImageView) findViewById(R.id.imageView2);
         imageView.setOnLongClickListener(new View.OnLongClickListener() {
@@ -92,8 +99,7 @@ public class UserActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
 
 // on vérifie que la réponse est bien liée au code de connexion choisi
-        if
-                (requestCode == RC_SIGN_IN) {
+        if (requestCode == RC_SIGN_IN) {
             IdpResponse response = IdpResponse.fromResultIntent(data);
 // Authentification réussie
             if (resultCode == RESULT_OK) {
@@ -102,6 +108,7 @@ public class UserActivity extends AppCompatActivity {
                 TextView textView = (TextView) findViewById(R.id.email);
                 textView.setText(response.getEmail());
                 downloadImage();
+                setUser();
                 return;
             } else {
 // echec de l'authentification
@@ -139,8 +146,7 @@ public class UserActivity extends AppCompatActivity {
                         final Uri imageUri = data.getData();
                         final InputStream imageStream = getContentResolver().openInputStream(imageUri);
                         selectedImage = BitmapFactory.decodeStream(imageStream);
-                    }
-                    else {
+                    } else {
                         selectedImage = (Bitmap) data.getExtras().get("data");
                     }
 // on redimensionne le bitmap pour ne pas qu'il soit trop grand
@@ -148,14 +154,15 @@ public class UserActivity extends AppCompatActivity {
                             (selectedImage.getHeight() * 500) / selectedImage.getWidth(), false);
                     imageView.setImageBitmap(finalbitmap);
                     uploadImage();
-                }
-                catch
+                } catch
                         (Exception e) {
-                    Log.v("AndroBoum",e.getMessage());
-                };
+                    Log.v("AndroBoum", e.getMessage());
+                }
+                ;
             }
         }
     }
+
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
@@ -176,6 +183,7 @@ public class UserActivity extends AppCompatActivity {
                 return super.onOptionsItemSelected(item);
         }
     }
+
     private StorageReference getCloudStorageReference() {
 // on va chercher l'email de l'utilisateur connecté
         FirebaseAuth auth = FirebaseAuth.getInstance();
@@ -188,6 +196,7 @@ public class UserActivity extends AppCompatActivity {
         StorageReference photoRef = storageRef.child(email + "/photo.jpg");
         return photoRef;
     }
+
     private void
     downloadImage() {
         StorageReference photoRef = getCloudStorageReference();
@@ -201,6 +210,7 @@ public class UserActivity extends AppCompatActivity {
                 .placeholder(R.drawable.ic_person_black_24dp)
                 .into(imageView);
     }
+
     private void uploadImage() {
         StorageReference photoRef = getCloudStorageReference();
         if (photoRef == null) return;
@@ -220,14 +230,52 @@ public class UserActivity extends AppCompatActivity {
 // si on est là, échec de l'upload
             }
         }).addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>() {
-                            @Override
-                            public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
+            @Override
+            public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
 // ok, l'image est uploadée
 // on fait pop un toast d'information
-                                Toast toast = Toast.makeText(getApplicationContext(),
-                                                        getString(R.string.imageUploaded), Toast.LENGTH_SHORT);
-                                toast.show();
-                            }
-                        });
+                Toast toast = Toast.makeText(getApplicationContext(),
+                        getString(R.string.imageUploaded), Toast.LENGTH_SHORT);
+                toast.show();
+            }
+        });
+    }
+
+    private Profil user = new Profil();
+
+    private void setUser() {
+        FirebaseAuth auth = FirebaseAuth.getInstance();
+        FirebaseUser fuser = auth.getCurrentUser();
+        if (fuser != null) {
+            user.setUid(fuser.getUid());
+            user.setEmail(fuser.getEmail());
+            user.setConnected(true);
+            updateProfil(user);
+        }
+
+    }
+
+    private void updateProfil(Profil user) {
+        DatabaseReference mDatabase = FirebaseDatabase.getInstance().getReference();
+        DatabaseReference ref = mDatabase.child("Users").child(user.getUid());
+        ref.child("connected").setValue(true);
+        ref.child("email").setValue(user.getEmail());
+        ref.child("uid").setValue(user.getUid());
+    }
+
+    @Override
+    protected void onDestroy() {
+        user.setConnected(false);
+        FirebaseAuth auth = FirebaseAuth.getInstance();
+        if (auth != null) {
+            FirebaseUser fuser = auth.getCurrentUser();
+            if (fuser != null) {
+                final FirebaseDatabase mDatabase = FirebaseDatabase.getInstance();
+                DatabaseReference mreference =
+                        mDatabase.getReference().child("Users").child(fuser.getUid());
+                mreference.child("connected").setValue("false");
+            }
+        }
+        super.onDestroy();
     }
 }
