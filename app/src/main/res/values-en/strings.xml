@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="title">The app\' who does boom but not this much</string>
+    <string name="dem">Start</string>
+    <string name="action_logout">Logout</string>
+    <string name="action_settings">Options</string>
+    <string name="imageUploaded">The picture has been successfully uploaded</string>
+</resources>

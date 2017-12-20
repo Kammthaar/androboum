@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">AndroBoum</string>
+    <string name="title">L\'appli qui fait boum mais pas trop quand même</string>
+    <string name="text">Cleminou Copyright</string>
+    <string name="dem">Démarrer</string>
+    <string name="facebook_application_id" translatable="false">1809914232370472</string>
+    <string name="facebook_login_protocol_scheme" translatable="false">fb1809914232370472</string>
+    <string name="action_logout">Déconnexion</string>
+    <string name="action_settings">Options</string>
+    <string name="imageUploaded">L\'image a bien été upload</string>
+</resources>
+    
